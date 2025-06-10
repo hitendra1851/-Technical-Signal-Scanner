@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import yfinance as yf
 import streamlit as st
@@ -60,12 +61,21 @@ def load_group_symbols(market, group_option):
             "Nifty 100": "https://archives.nseindia.com/content/indices/ind_nifty100list.csv",
             "Nifty 200": "https://archives.nseindia.com/content/indices/ind_nifty200list.csv",
             "Nifty 500": "https://archives.nseindia.com/content/indices/ind_nifty500list.csv",
-            "Small cap 50": "https://archives.nseindia.com/content/indices/ind_smallcap50list.csv",
-            "Small cap 100": "https://archives.nseindia.com/content/indices/ind_smallcap100list.csv",
-            "Small cap 250": "https://archives.nseindia.com/content/indices/ind_smallcap250list.csv",
-            "Mid cap 50": "https://archives.nseindia.com/content/indices/ind_midcap50list.csv",
-            "Mid cap 100": "https://archives.nseindia.com/content/indices/ind_midcap100list.csv",
-            "Mid cap 150": "https://archives.nseindia.com/content/indices/ind_midcap150list.csv"
+            "NIFTY Small cap 50": "https://archives.nseindia.com/content/indices/ind_niftysmallcap50list.csv",
+            "NIFTY Small cap 100": "https://archives.nseindia.com/content/indices/ind_niftysmallcap100list.csv",
+            "NIFTY Small cap 250": "https://archives.nseindia.com/content/indices/ind_niftysmallcap250list.csv",
+            "NIFTY MIDCAP 50": "https://archives.nseindia.com/content/indices/ind_niftymidcap50list.csv",
+            "NIFTY MIDCAP 100": "https://archives.nseindia.com/content/indices/ind_niftymidcap100list.csv",
+            "NIFTY MIDCAP 150": "https://archives.nseindia.com/content/indices/ind_midcap150list.csv",
+            "BANK": "https://archives.nseindia.com/content/indices/ind_niftybanklist.csv",
+            "FINANCIAL SERVICES": "https://archives.nseindia.com/content/indices/ind_niftyfinancelist.csv",
+            "FMCG": "https://archives.nseindia.com/content/indices/ind_niftyfmcglist.csv",
+            "IT": "https://archives.nseindia.com/content/indices/ind_niftyitlist.csv",
+            "MEDIA": "https://archives.nseindia.com/content/indices/ind_niftymedialist.csv",
+            "METAL": "https://archives.nseindia.com/content/indices/ind_niftymetallist.csv",
+            "PHARMA": "https://archives.nseindia.com/content/indices/ind_niftypharmalist.csv",
+            "PSU BANK": "https://archives.nseindia.com/content/indices/ind_niftypsubanklist.csv",
+            "REALTY": "https://archives.nseindia.com/content/indices/ind_niftyrealtylist.csv"
         }
 
         url = group_map.get(group_option)
@@ -73,7 +83,7 @@ def load_group_symbols(market, group_option):
             return []
 
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                           "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
         }
 
@@ -146,7 +156,7 @@ def load_nse_csv_symbols(url: str, symbol_column_name: str = 'Symbol') -> list:
 
 
 def update_signal_prices():
-    from db import update_price
+    from db import update_signal_prices
     from datetime import datetime, timedelta
     import yfinance as yf
     import sqlite3
@@ -166,8 +176,34 @@ def update_signal_prices():
         price_5d = df[df['Date'] == d + timedelta(days=5)]['Close'].values
         price_10d = df[df['Date'] == d + timedelta(days=10)]['Close'].values
 
-        update_price(symbol, signal_date,
-                     price_after_5d=price_5d[0] if len(price_5d) > 0 else None,
-                     price_after_10d=price_10d[0] if len(price_10d) > 0 else None)
+        update_signal_prices(symbol, signal_date,
+                             price_after_5d=price_5d[0] if len(price_5d) > 0 else None,
+                             price_after_10d=price_10d[0] if len(price_10d) > 0 else None)
 
     conn.close()
+
+
+def calculate_sigma_signal(df: pd.DataFrame) -> pd.DataFrame:
+    period = 50
+    width = 2
+    atr_period = 14
+    atr_factor = 1.8
+
+    df['MA50'] = df['Close'].rolling(window=period).mean()
+    df['STD'] = df['Close'].rolling(window=period).std()
+    df['Upper'] = df['MA50'] + width * df['STD']
+    df['Lower'] = df['MA50'] - width * df['STD']
+    df['EMA100'] = df['Close'].ewm(span=100, adjust=False).mean()
+
+    high = df['Close'] + np.random.rand(len(df)) * 2
+    low = df['Close'] - np.random.rand(len(df)) * 2
+    tr = pd.concat([
+        high - low,
+        (high - df['Close'].shift()).abs(),
+        (low - df['Close'].shift()).abs()
+    ], axis=1).max(axis=1)
+    df['ATR'] = tr.rolling(window=atr_period).mean()
+    df['ATR_Stop'] = df['Close'] - df['ATR'] * atr_factor
+
+    df['Sigma_Entry'] = (df['Close'].shift(1) < df['Upper'].shift(1)) & (df['Close'] > df['Upper'])
+    return df
