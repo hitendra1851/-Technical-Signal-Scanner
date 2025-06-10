@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from datetime import datetime
 from utils import (
-    fetch_weekly_data, fetch_daily_data, calculate_macd,
+    fetch_weekly_data, fetch_daily_data, calculate_macd, calculate_sigma_signal,
     detect_macd_cross, load_group_symbols
 )
 from db import create_db, insert_signal, fetch_all_signals, update_signal_prices
@@ -36,8 +36,9 @@ market = st.sidebar.selectbox("Select Market", ["India", "USA"])
 if market == "India":
     group_options = [
         "Nifty 50", "Nifty Next 50", "Nifty 100", "Nifty 200", "Nifty 500",
-        "Small cap 50", "Small cap 100", "Small cap 250",
-        "Mid cap 50", "Mid cap 100", "Mid cap 150"
+        "NIFTY Small cap 50", "NIFTY Small cap 100", "NIFTY Small cap 250",
+        "NIFTY MIDCAP 50", "NIFTY MIDCAP 100", "NIFTY MIDCAP 150", "BANK", "FINANCIAL SERVICES", "FMCG", "IT", "MEDIA",
+        "METAL", "PHARMA", "PSU BANK", "REALTY"
     ]
 else:
     group_options = ["ALL USA Stocks"]
@@ -45,7 +46,8 @@ else:
 group_option = st.sidebar.selectbox("Select Group", group_options)
 scan_type = st.sidebar.selectbox("Scan Strategy", [
     "MACD Bullish Crossover",
-    "Price Crosses Above 200 EMA"
+    "Price Crosses Above 200 EMA",
+    "Sigma Signal"
 ])
 interval = st.sidebar.radio("Data Interval", ["Weekly", "Daily"])
 backtest_date = st.sidebar.date_input("Backtest As Of Date (optional)", value=None)
@@ -75,6 +77,10 @@ with tab1:
                 df = calculate_macd(df)
                 signal_found = detect_macd_cross(
                     df[df['Date'] <= pd.to_datetime(backtest_date)]) if backtest_date else detect_macd_cross(df)
+
+            elif scan_type == "Sigma Signal":
+                df = calculate_sigma_signal(df)
+                signal_found = df.iloc[-1]['Sigma_Entry']
 
             elif scan_type == "Price Crosses Above 200 EMA":
                 df['EMA200'] = df['Close'].ewm(span=200, adjust=False).mean()
