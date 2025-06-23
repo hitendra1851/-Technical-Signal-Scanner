@@ -4,6 +4,7 @@ import yfinance as yf
 import streamlit as st
 import requests
 from io import StringIO
+import os
 
 
 @st.cache_data(ttl=3600)
@@ -56,44 +57,36 @@ def detect_macd_cross(df: pd.DataFrame) -> bool:
 def load_group_symbols(market, group_option):
     if market == "India":
         group_map = {
-            "Nifty 50": "https://archives.nseindia.com/content/indices/ind_nifty50list.csv",
-            "Nifty Next 50": "https://archives.nseindia.com/content/indices/ind_niftynext50list.csv",
-            "Nifty 100": "https://archives.nseindia.com/content/indices/ind_nifty100list.csv",
-            "Nifty 200": "https://archives.nseindia.com/content/indices/ind_nifty200list.csv",
-            "Nifty 500": "https://archives.nseindia.com/content/indices/ind_nifty500list.csv",
-            "NIFTY Small cap 50": "https://archives.nseindia.com/content/indices/ind_niftysmallcap50list.csv",
-            "NIFTY Small cap 100": "https://archives.nseindia.com/content/indices/ind_niftysmallcap100list.csv",
-            "NIFTY Small cap 250": "https://archives.nseindia.com/content/indices/ind_niftysmallcap250list.csv",
-            "NIFTY MIDCAP 50": "https://archives.nseindia.com/content/indices/ind_niftymidcap50list.csv",
-            "NIFTY MIDCAP 100": "https://archives.nseindia.com/content/indices/ind_niftymidcap100list.csv",
-            "NIFTY MIDCAP 150": "https://archives.nseindia.com/content/indices/ind_midcap150list.csv",
-            "BANK": "https://archives.nseindia.com/content/indices/ind_niftybanklist.csv",
-            "FINANCIAL SERVICES": "https://archives.nseindia.com/content/indices/ind_niftyfinancelist.csv",
-            "FMCG": "https://archives.nseindia.com/content/indices/ind_niftyfmcglist.csv",
-            "IT": "https://archives.nseindia.com/content/indices/ind_niftyitlist.csv",
-            "MEDIA": "https://archives.nseindia.com/content/indices/ind_niftymedialist.csv",
-            "METAL": "https://archives.nseindia.com/content/indices/ind_niftymetallist.csv",
-            "PHARMA": "https://archives.nseindia.com/content/indices/ind_niftypharmalist.csv",
-            "PSU BANK": "https://archives.nseindia.com/content/indices/ind_niftypsubanklist.csv",
-            "REALTY": "https://archives.nseindia.com/content/indices/ind_niftyrealtylist.csv"
+            "Nifty 50": ("https://archives.nseindia.com/content/indices/ind_nifty50list.csv", "data/ind_nifty50list.csv"),
+            "Nifty Next 50": ("https://archives.nseindia.com/content/indices/ind_niftynext50list.csv", "data/ind_niftynext50list.csv"),
+            "Nifty 100": ("https://archives.nseindia.com/content/indices/ind_nifty100list.csv", "data/ind_nifty100list.csv"),
+            "Nifty 200": ("https://archives.nseindia.com/content/indices/ind_nifty200list.csv", "data/ind_nifty200list.csv"),
+            "Nifty 500": ("https://archives.nseindia.com/content/indices/ind_nifty500list.csv", "data/ind_nifty500list.csv"),
+            "NIFTY Small cap 50": ("https://archives.nseindia.com/content/indices/ind_niftysmallcap50list.csv", "data/ind_niftysmallcap50list.csv"),
+            "NIFTY Small cap 100": ("https://archives.nseindia.com/content/indices/ind_niftysmallcap100list.csv", "data/ind_niftysmallcap100list.csv"),
+            "NIFTY Small cap 250": ("https://archives.nseindia.com/content/indices/ind_niftysmallcap250list.csv", "data/ind_niftysmallcap250list.csv"),
+            "NIFTY MIDCAP 50": ("https://archives.nseindia.com/content/indices/ind_niftymidcap50list.csv", "data/ind_niftymidcap50list.csv"),
+            "NIFTY MIDCAP 100": ("https://archives.nseindia.com/content/indices/ind_niftymidcap100list.csv", "data/ind_niftymidcap100list.csv"),
+            "NIFTY MIDCAP 150": ("https://archives.nseindia.com/content/indices/ind_niftymidcap150list.csv", "data/ind_midcap150list.csv"),
+            "BANK": ("https://archives.nseindia.com/content/indices/ind_niftybanklist.csv", "data/ind_niftybanklist.csv"),
+            "FINANCIAL SERVICES": ("https://archives.nseindia.com/content/indices/ind_niftyfinancelist.csv", "data/ind_niftyfinancelist.csv"),
+            "FMCG": ("https://archives.nseindia.com/content/indices/ind_niftyfmcglist.csv", "data/ind_niftyfmcglist.csv"),
+            "IT": ("https://archives.nseindia.com/content/indices/ind_niftyitlist.csv", "data/ind_niftyitlist.csv"),
+            "MEDIA": ("https://archives.nseindia.com/content/indices/ind_niftymedialist.csv", "data/ind_niftymedialist.csv"),
+            "METAL": ("https://archives.nseindia.com/content/indices/ind_niftymetallist.csv", "data/ind_niftymetallist.csv"),
+            "PHARMA": ("https://archives.nseindia.com/content/indices/ind_niftypharmalist.csv", "data/ind_niftypharmalist.csv"),
+            "PSU BANK": ("https://archives.nseindia.com/content/indices/ind_niftypsubanklist.csv", "data/ind_niftypsubanklist.csv"),
+            "REALTY": ("https://archives.nseindia.com/content/indices/ind_niftyrealtylist.csv", "data/ind_niftyrealtylist.csv")
         }
 
-        url = group_map.get(group_option)
-        if not url:
+        url_fallback = group_map.get(group_option)
+        if not url_fallback:
             return []
 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                          "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-        }
-
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            print(f"Failed to fetch CSV: {response.status_code}")
-            return []
-
-        df = pd.read_csv(StringIO(response.text))
-        return [symbol + ".NS" for symbol in df["Symbol"].tolist()]
+        url, fallback = url_fallback
+        fallback_path = os.path.join(os.getcwd(), fallback)
+        symbols = load_nse_csv_symbols(url, fallback_path=fallback_path)
+        return [symbol + ".NS" for symbol in symbols]
 
     elif market == "USA" and group_option == "ALL USA Stocks":
         return [
@@ -138,21 +131,34 @@ def load_group_symbols(market, group_option):
         return []
 
 
-def load_nse_csv_symbols(url: str, symbol_column_name: str = 'Symbol') -> list:
+def load_nse_csv_symbols(url: str, symbol_column_name: str = 'Symbol', fallback_path: str = None) -> list:
     """
-    Loads NSE CSV from given URL and extracts the symbol list.
+    Loads NSE CSV from URL or a fallback local CSV file.
     """
     try:
-        response = requests.get(url)
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         csv_data = StringIO(response.text)
         df = pd.read_csv(csv_data)
-        df.columns = df.columns.str.strip()
-        symbols = df[symbol_column_name].dropna().str.strip().str.upper().tolist()
-        return symbols
+        print(f"✅ Fetched symbols from URL: {url}")
     except Exception as e:
-        print(f"Failed to load symbols from {url}: {e}")
-        return []
+        print(f"⚠️ Failed to load from URL ({url}): {e}")
+        if fallback_path:
+            try:
+                df = pd.read_csv(fallback_path)
+                print(f"✅ Loaded symbols from fallback: {fallback_path}")
+            except Exception as fe:
+                print(f"❌ Fallback file failed: {fe}")
+                return []
+        else:
+            return []
+
+    df.columns = df.columns.str.strip()
+    symbols = df[symbol_column_name].dropna().str.strip().str.upper().tolist()
+    return symbols
 
 
 def update_signal_prices():
